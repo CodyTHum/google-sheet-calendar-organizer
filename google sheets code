@@ -1,0 +1,65 @@
+function onOpen() {
+  addCheckboxesAndSync(); // Run when the sheet is opened
+}
+
+function onEdit() {
+  addCheckboxesAndSync(); // Run when the sheet is edited
+}
+
+function addCheckboxesAndSync() {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  var lastRow = sheet.getLastRow();
+  var rangeA = sheet.getRange('A1:A' + lastRow); // Get the range starting from A1 (event title)
+  var rangeB = sheet.getRange('B1:B' + lastRow); // Get the range for column B (dates)
+  var valuesA = rangeA.getValues(); // Get the values in column A
+  var valuesB = rangeB.getValues(); // Get the values in column B
+  
+  var today = new Date(); // Get today's date
+  
+  for (var i = 0; i < valuesA.length; i++) {
+    if (valuesA[i][0] !== "") { // Check if there is text in column A
+      var checkboxCell = sheet.getRange(i + 1, 4); // Cell in column D for the checkbox
+      if (checkboxCell.getValue() === "") { // Only insert checkbox if not already there
+        checkboxCell.insertCheckboxes();
+      }
+    }
+
+    // Check if there's a date in column B and sync with Calendar
+    if (valuesB[i][0] !== "") {
+      var dateValue = new Date(valuesB[i][0]); // Convert the date string in B to a date object
+      var timeDiff = dateValue.getTime() - today.getTime(); // Difference between dates in milliseconds
+      var daysLeft = Math.ceil(timeDiff / (1000 * 3600 * 24)); // Convert milliseconds to days
+      
+      // Place the number of days left in column C
+      sheet.getRange(i + 1, 3).setValue(daysLeft); // Column C for days left
+      
+      // Sync with Google Calendar: Add event from column A (title) and column B (date)
+      syncWithGoogleCalendar(valuesA[i][0], dateValue); // Add event to Google Calendar
+    }
+  }
+}
+
+// Function to sync the event with Google Calendar
+function syncWithGoogleCalendar(eventTitle, eventDate) {
+  var calendar = CalendarApp.getDefaultCalendar(); // Get the user's default Google Calendar
+  var startTime = eventDate; // The start time of the event (from column B)
+  var endTime = new Date(eventDate); // Assuming the event lasts for 1 hour
+  endTime.setHours(eventDate.getHours() + 1); // Set the event duration (1 hour)
+
+  // Check if the event already exists on this date to prevent duplicates
+  var events = calendar.getEventsForDay(eventDate);
+  var eventExists = false;
+  
+  for (var i = 0; i < events.length; i++) {
+    if (events[i].getTitle() == eventTitle) {
+      eventExists = true;
+      break;
+    }
+  }
+
+  if (!eventExists) {
+    // Create the event in Google Calendar
+    calendar.createEvent(eventTitle, startTime, endTime);
+  }
+}
+
