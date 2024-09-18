@@ -2,8 +2,10 @@
 
 1. Create a Google sheets and click on extension
 
-2. add code into extension and run
+2. add code into app script and save
+   
+3. Add trigger by clicking on the clock and putting function Onopen and event on edit
 
-3. Row A will be your event name Row B will be the date it will not show you these event in your calendar if you allow it to sync.
+4. Now run the program and allow access to sync
 
-4. Also add trigger by clicking on the clock and adding onopen 
+5. Make sure to type in Title then Detail first else there will be multiple event of same title on calendar.
