@@ -1,9 +1,28 @@
 function onOpen() {
-  addCheckboxesAndSync(); // Run when the sheet is opened
+  formatHeader(); // Format the header row on sheet open
+  addCheckboxesAndSync(); // Run the main function when the sheet is opened
 }
 
 function onEdit() {
   addCheckboxesAndSync(); // Run when the sheet is edited
+}
+
+function formatHeader() {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  
+  // Set the values for Row 1
+  sheet.getRange('A1').setValue('Date');
+  sheet.getRange('B1').setValue('Time');
+  sheet.getRange('C1').setValue('Title(1)');
+  sheet.getRange('D1').setValue('Category');
+  sheet.getRange('E1').setValue('Detail(2)');
+  sheet.getRange('F1').setValue('Check Box');
+  sheet.getRange('G1').setValue('Days till due');
+  
+  // Format the header row (A1:G1)
+  var headerRange = sheet.getRange('A1:G1');
+  headerRange.setFontWeight('bold'); // Make the text bold
+  headerRange.setHorizontalAlignment('center'); // Align text to center
 }
 
 function addCheckboxesAndSync() {
