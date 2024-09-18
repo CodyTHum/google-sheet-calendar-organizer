@@ -9,57 +9,115 @@ function onEdit() {
 function addCheckboxesAndSync() {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
   var lastRow = sheet.getLastRow();
-  var rangeA = sheet.getRange('A1:A' + lastRow); // Get the range starting from A1 (event title)
-  var rangeB = sheet.getRange('B1:B' + lastRow); // Get the range for column B (dates)
-  var valuesA = rangeA.getValues(); // Get the values in column A
-  var valuesB = rangeB.getValues(); // Get the values in column B
+  var rangeA = sheet.getRange('A2:A' + lastRow); // Start from row 2 for event dates in column A
+  var rangeB = sheet.getRange('B2:B' + lastRow); // Start from row 2 for event times in column B
+  var rangeC = sheet.getRange('C2:C' + lastRow); // Start from row 2 for event titles in column C
+  var rangeE = sheet.getRange('E2:E' + lastRow); // Start from row 2 for additional info in column E
+  var valuesA = rangeA.getValues(); // Get the date values in column A
+  var valuesB = rangeB.getValues(); // Get the time values in column B
+  var valuesC = rangeC.getValues(); // Get the event title values in column C
+  var valuesE = rangeE.getValues(); // Get the additional information in column E
   
   var today = new Date(); // Get today's date
   
   for (var i = 0; i < valuesA.length; i++) {
-    if (valuesA[i][0] !== "") { // Check if there is text in column A
-      var checkboxCell = sheet.getRange(i + 1, 4); // Cell in column D for the checkbox
-      if (checkboxCell.getValue() === "") { // Only insert checkbox if not already there
+    if (valuesC[i][0] !== "") { // Check if there is text in column C (event title)
+      var checkboxCell = sheet.getRange(i + 2, 6); // Cell in column F for the checkbox (start at row 2)
+      
+      // Insert checkbox if it's empty or not yet a checkbox
+      if (!checkboxCell.isChecked() && checkboxCell.getValue() === "") {
         checkboxCell.insertCheckboxes();
       }
+
+      // Add a dropdown list in column D with the options and apply conditional formatting
+      var dropdownCell = sheet.getRange(i + 2, 4); // Cell in column D for the dropdown (start at row 2)
+      addDropdownWithFormatting(dropdownCell);
     }
 
-    // Check if there's a date in column B and sync with Calendar
-    if (valuesB[i][0] !== "") {
-      var dateValue = new Date(valuesB[i][0]); // Convert the date string in B to a date object
+    // Check if there's a date in column A and time in column B, and sync with Calendar
+    if (valuesA[i][0] !== "" && valuesB[i][0] !== "") {
+      var dateValue = new Date(valuesA[i][0]); // Convert the date in A to a Date object
+
+      // Ensure valuesB[i][0] is processed as a time string or a Date object
+      var timeValue = valuesB[i][0];
+      if (typeof timeValue === 'string') {
+        var timeParts = timeValue.split(":"); // Split the time in B (assuming format is HH:mm)
+        dateValue.setHours(timeParts[0], timeParts[1], 0); // Set the hours and minutes for the event
+      } else if (timeValue instanceof Date) {
+        // If time is in Date format, use its hours and minutes
+        dateValue.setHours(timeValue.getHours(), timeValue.getMinutes(), 0);
+      }
+
       var timeDiff = dateValue.getTime() - today.getTime(); // Difference between dates in milliseconds
       var daysLeft = Math.ceil(timeDiff / (1000 * 3600 * 24)); // Convert milliseconds to days
       
-      // Place the number of days left in column C
-      sheet.getRange(i + 1, 3).setValue(daysLeft); // Column C for days left
+      // Place the number of days left in column G (start at row 2)
+      sheet.getRange(i + 2, 7).setValue(daysLeft); // Column G for days left
       
-      // Sync with Google Calendar: Add event from column A (title) and column B (date)
-      syncWithGoogleCalendar(valuesA[i][0], dateValue); // Add event to Google Calendar
+      // Sync with Google Calendar: Add event from column C (title), column A (date), and column E (additional info)
+      syncWithGoogleCalendar(valuesC[i][0], dateValue, valuesE[i][0]); // Add event to Google Calendar
     }
   }
 }
 
 // Function to sync the event with Google Calendar
-function syncWithGoogleCalendar(eventTitle, eventDate) {
+function syncWithGoogleCalendar(eventTitle, eventDateTime, additionalInfo) {
   var calendar = CalendarApp.getDefaultCalendar(); // Get the user's default Google Calendar
-  var startTime = eventDate; // The start time of the event (from column B)
-  var endTime = new Date(eventDate); // Assuming the event lasts for 1 hour
-  endTime.setHours(eventDate.getHours() + 1); // Set the event duration (1 hour)
+
+  // Event title without the time, but with additional info from column E
+  var fullEventTitle = eventTitle;
+
+  // Append additional info from column E to the event title, if present
+  if (additionalInfo !== "") {
+    fullEventTitle += ' (' + additionalInfo + ')';
+  }
 
   // Check if the event already exists on this date to prevent duplicates
-  var events = calendar.getEventsForDay(eventDate);
+  var events = calendar.getEventsForDay(eventDateTime);
   var eventExists = false;
   
   for (var i = 0; i < events.length; i++) {
-    if (events[i].getTitle() == eventTitle) {
+    if (events[i].getTitle() == fullEventTitle) {
       eventExists = true;
       break;
     }
   }
 
   if (!eventExists) {
-    // Create the event in Google Calendar
-    calendar.createEvent(eventTitle, startTime, endTime);
+    // Create the event in Google Calendar with the same start and end date/time
+    calendar.createEvent(fullEventTitle, eventDateTime, eventDateTime); // Start and end at the same time
   }
+}
+
+// Function to add a dropdown with "Homework" and "Quiz" options, and apply conditional formatting
+function addDropdownWithFormatting(dropdownCell) {
+  var rule = SpreadsheetApp.newDataValidation()
+    .requireValueInList(['Homework', 'Quiz'], true)
+    .build();
+  dropdownCell.setDataValidation(rule);
+
+  // Apply conditional formatting for "Homework" (green) and "Quiz" (blue)
+  var conditionalRules = dropdownCell.getSheet().getConditionalFormatRules();
+
+  // Create a new rule for "Homework" (green)
+  var homeworkRule = SpreadsheetApp.newConditionalFormatRule()
+    .whenTextEqualTo("Homework")
+    .setBackground("#00FF00") // Green background
+    .setRanges([dropdownCell])
+    .build();
+
+  // Create a new rule for "Quiz" (blue)
+  var quizRule = SpreadsheetApp.newConditionalFormatRule()
+    .whenTextEqualTo("Quiz")
+    .setBackground("#0000FF") // Blue background
+    .setRanges([dropdownCell])
+    .build();
+
+  // Add the new rules to the conditional formatting list
+  conditionalRules.push(homeworkRule);
+  conditionalRules.push(quizRule);
+
+  // Set the updated rules on the sheet
+  dropdownCell.getSheet().setConditionalFormatRules(conditionalRules);
 }
 
